@@ -49,12 +49,19 @@ func createDatabase() {
 		panic(err)
 	}
 
-	createTableStatement := `CREATE TABLE wind (
+	createTableStatement := `CREATE TABLE detections (
     id          SERIAL NOT NULL PRIMARY KEY,
     knots       integer,
     direction   varchar(3),
     time        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );`
+  );
+  CREATE TABLE stats (
+    id          SERIAL NOT NULL PRIMARY KEY,
+    averages    json,
+    day         date,
+    windy       boolean
+  );
+  `
 
 	_, err = db.Exec(createTableStatement)
 
