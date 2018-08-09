@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/twoneks/gotovalma/config"
 	"github.com/twoneks/gotovalma/database"
 )
 
@@ -15,9 +16,9 @@ type WindAverage struct {
 }
 
 // Detect the average wind speed and store it on db
-func Detect(db *sql.DB, today string) []WindAverage {
+func Detect(db *sql.DB, today string, config *config.Configuration) []WindAverage {
 	var waitGroup sync.WaitGroup
-	intervals := [3]int{120, 60, 30}
+	intervals := config.AlarmAverageIntervals
 	averagesChan := make(chan WindAverage, len(intervals))
 
 	for _, interval := range intervals {
@@ -37,16 +38,13 @@ func Detect(db *sql.DB, today string) []WindAverage {
 
 	jsonAverages, _ := json.Marshal(averages)
 	db.Exec(database.InsertStatRecord(string(jsonAverages)))
-	if true {
-		// Perform here the call
-	}
 
 	return averages
 }
 
 // UpdateDailyStat setting whether was windy or not
 func UpdateDailyStat(db *sql.DB, today string) {
-	// Calculate average wind for a session of 120 seconds back from today
+	// Calculate average wind for a session of 120 minutes back from today
 	windy := calculateAverage(120, today, db)
 	db.Exec(database.UpdateWindyStats(windy.Average > 14))
 }
@@ -71,7 +69,7 @@ func calculateAverage(interval int, from string, db *sql.DB) WindAverage {
 	}
 
 	sum := 0
-	for val := range windSpeeds {
+	for _, val := range windSpeeds {
 		sum += val
 	}
 

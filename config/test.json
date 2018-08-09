@@ -1,0 +1,10 @@
+{
+  "DatabaseConnectionURL": "postgres://postgres:@localhost/gotovalma?sslmode=disable",
+  "StartMonitoring": "4:30",
+  "MonitoringInterval": 5,
+  "MonitoringPollingInterval": 3,
+  "AlarmAverageIntervals": [120, 30],
+  "AlarmAt": "5:30",
+  "SentenceAt": "9:00",
+  "SentenceOverInterval": 2
+}

@@ -15,6 +15,5 @@ func InsertStatRecord(stats string) string {
 }
 
 func UpdateWindyStats(windy bool) string {
-	fmt.Println(fmt.Sprintf("UPDATE stats SET windy = %t WHERE day = now()::date;", windy))
 	return fmt.Sprintf("UPDATE stats SET windy = %t WHERE day = now()::date;", windy)
 }

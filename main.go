@@ -2,12 +2,13 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/robfig/cron"
+	"github.com/twoneks/gotovalma/config"
 	"github.com/twoneks/gotovalma/database"
 	"github.com/twoneks/gotovalma/detector"
+	"github.com/twoneks/gotovalma/helpers"
 	"github.com/twoneks/gotovalma/windStation"
 )
 
@@ -19,44 +20,44 @@ type detection struct {
 }
 
 func main() {
-	fmt.Println("Booting...")
+	configuration := config.Configuration{}
+	helpers.LoadConfig(&configuration)
+
 	db := database.Connect()
 	defer db.Close()
 
-	// // TODO: Find a way to spot this after x iterations
-	ticker := time.NewTicker(3 * 60000 * time.Millisecond)
-	//
-	go func(db *sql.DB, ticker *time.Ticker) {
+	cronTab := cron.New()
 
-		for {
-			select {
-			case i := <-ticker.C:
-				fmt.Print(i)
-				knots := windStation.Get()
-				_, err := db.Exec(database.WindDetectionInsert(knots))
-				if err != nil {
-					panic(err)
-				}
-			case <-time.After(time.Hour * 2):
-				ticker.Stop()
-			}
-		}
-	}(db, ticker)
-
-	c := cron.New()
+	// Monitor the actual wind condition for number ho hours set in MonitoringInterval
+	cronTab.AddFunc("0 30 4 * * *", func() { startMonitioring(&configuration, db) })
 	//Detect wind average at 5.30am
-	c.AddFunc("0 30 5 * * *", func() { detector.Detect(db, todayAt(5, 30)) })
+	cronTab.AddFunc("0 30 5 * * *", func() { detector.Detect(db, helpers.TodayAt(5, 30), &configuration) })
 	//Update daily stat at 9.00am setting whether was windy or not
-	c.AddFunc("0 0 9 * * *", func() { detector.UpdateDailyStat(db, todayAt(9, 00)) })
+	cronTab.AddFunc("0 0 9 * * *", func() { detector.UpdateDailyStat(db, helpers.TodayAt(9, 00)) })
 
-	c.Start()
+	cronTab.Start()
 
 	done := make(chan bool)
 	<-done
 }
 
-func todayAt(hour int, min int) string {
-	dateLayout := "2006-01-02 04:05"
-	t := time.Now()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, hour, min, 0, t.Location()).Format(dateLayout)
+func startMonitioring(configuration *config.Configuration, db *sql.DB) {
+	ticker := time.NewTicker(time.Duration(configuration.MonitoringPollingInterval) * time.Minute)
+	timeout := make(chan bool, 1)
+
+	go func(timeout chan bool) {
+		time.Sleep(time.Duration(configuration.MonitoringInterval) * time.Hour)
+		timeout <- true
+	}(timeout)
+
+	go func(db *sql.DB, ticker *time.Ticker) {
+		for {
+			select {
+			case <-ticker.C:
+				windStation.TakeOver(db)
+			case <-timeout:
+				ticker.Stop()
+			}
+		}
+	}(db, ticker)
 }
